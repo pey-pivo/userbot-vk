@@ -1,6 +1,6 @@
 # Юзербот для [vk.com](https://vk.com/)
 ___
-Необходимые зависимости Python: **ujson, requests, pillow, vkbottle ___(2.7.8)___**
+Необходимые зависимости Pythoon: **ujson, requests, pillow, vkbottle ___(2.7.8)___**
 
 Необходимые программы для работы некоторых команд: **ImageMagick, ffmpeg**
 ___
