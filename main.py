@@ -11,7 +11,7 @@ import threading
 import random
 
 
-user = User("")  # токен юзера от VK Admin с полными провами (vkhost.github.io)
+user = User("")  # токен юзера от VK Admin с полными правами (vkhost.github.io)
 owner_id = user.user_id
 
 photo_uploader = PhotoUploader(user.api, generate_attachment_strings=True)
@@ -46,76 +46,6 @@ def getData(id_name):
     except:
         return None
 
-async def DelCommandForAll(ans: Message, args):
-    if(ans.reply_message != None):
-        if(ans.reply_message.from_id != user.user_id):
-            await user.api.messages.send(
-                peer_id=ans.peer_id,
-                random_id=0,
-                message="Это не моё сообщение, дурик 👈🏻",
-                reply_to=ans.id
-            )
-            return
-        times = int(time.time()) - ans.date
-        if (times > 86400):
-            await user.api.messages.send(
-                peer_id=ans.peer_id,
-                random_id=0,
-                message="Это уже старое сообщение, его нельзя удалить",
-                reply_to=ans.id
-            )
-            return
-
-        await user.api.messages.delete(
-            message_ids=[ans.reply_message.id],
-            delete_for_all=True
-        )
-        return
-
-    if (len(args) < 2):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            random_id=0,
-            message="А кто количество сообщениий введет? 🥴",
-            reply_to=ans.id
-        )
-
-        time.sleep(3)
-
-        await user.api.messages.delete(
-            message_ids=ans.id,
-            delete_for_all= None if ans.peer_id == user.user_id else True
-        )
-        return
-
-    messages = await user.api.messages.get_history(
-        count=200,
-        peer_id=ans.peer_id,
-        start_message_id=ans.id
-    )
-
-    messages = messages.items
-    deleted = 0
-    sum = int(args[1])
-    list_messages = []
-    for message in messages:
-        if (deleted >= sum):
-            break
-
-        times = int(time.time()) - message.date
-        if (times > 86400):
-            break
-
-        if (message.from_id == user.user_id):
-            list_messages.append(message.id)
-            deleted += 1
-
-    await user.api.messages.delete(
-        message_ids=list_messages,
-        delete_for_all=True
-    )
-    return
-
 async def DelCommand(ans: Message, args):
     for_all = None if ans.from_id == ans.peer_id else True
 
@@ -134,12 +64,11 @@ async def DelCommand(ans: Message, args):
         start_message_id=ans.id
     )
 
-    messages = messages.items
     deleted = 0
     sum = int(args[1])
     list_messages = []
 
-    for message in messages:
+    for message in messages.items:
         if (deleted >= sum):
             break
 
@@ -155,6 +84,8 @@ async def DelCommand(ans: Message, args):
                         message_id=message.id,
                         message="&#13;"
                     )
+
+                    time.sleep(random.randint(1, 2))
             except Exception as e:
                 print(e)
 
@@ -170,54 +101,47 @@ async def Copy(ans: Message, args):
     if (ans.reply_message == None):
         await user.api.messages.edit(
             peer_id=ans.peer_id,
-            message_id=ans.message_id,
+            message_id=ans.id,
             message="Так-то на сообщение ответить надо дурень 🥳"
         )
+
+        time.sleep(3)
+
+        await user.api.messages.delete(
+            message_ids=ans.id
+        )
         return
 
-
-    await user.api.messages.delete(message_ids=[ans.id], delete_for_all=for_all)
     reply = ans.reply_message
-    if(reply.attachments[0]['audio_message'] != None):
-        gc=reply.attachments[0]['audio_message']
-        await user.api.messages.send(peer_id=ans.peer_id, random_id=0, attachment="doc"+str(gc['owner_id'])+"_"+str(gc['id'])+"_"+str(gc['access_key']))
-    elif(reply.attachments[0]['sticker'] != None):
-        sticker=reply.attachments[0]['sticker']
-        await user.api.messages.send(peer_id=ans.peer_id, random_id=0, sticker_id=sticker['sticker_id'])
+    try:
+        if (reply.attachments[0]['audio_message'] != None):
+            await user.api.messages.delete(message_ids=[ans.id], delete_for_all=for_all)
+
+            gc = reply.attachments[0]['audio_message']['link_ogg']
+            filename = "files/" + os.path.basename(gc).split('?')[0]
+            r = requests.get(gc)
+            with open(filename, 'wb') as f:
+                f.write(r.content)
+
+            uploaded = await doc_uploader.upload_doc_to_message(pathlike=filename, peer_id=ans.peer_id, doc_type="audio_message")
+            await user.api.messages.send(peer_id=ans.peer_id, random_id=0, attachment=uploaded)
+
+            os.remove(filename)
+        else:
+            raise
+    except:
+        await user.api.messages.edit(
+            peer_id=ans.peer_id,
+            message_id=ans.id,
+            message="❌ Это не голосовое сообщение"
+        )
+
+        time.sleep(3)
+
+        await user.api.messages.delete(
+            message_ids=ans.id
+        )
     return
-
-async def CopyForAll(ans: Message, args):
-    if (ans.reply_message == None):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            message="Так-то на сообщение ответить надо дурень 🥳",
-            random_id=0
-        )
-        return
-
-    reply = ans.reply_message
-    if(len(reply.attachments) == 0):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            message="Надо сообщение с гс или стикером....",
-            random_id=0
-        )
-        return
-
-    if(reply.attachments[0]['audio_message'] != None):
-        gc=reply.attachments[0]['audio_message']
-        await user.api.messages.send(reply_to=ans.id, peer_id=ans.peer_id, random_id=0, attachment="doc"+str(gc['owner_id'])+"_"+str(gc['id'])+"_"+str(gc['access_key']))
-    elif(reply.attachments[0]['sticker'] != None):
-        sticker=reply.attachments[0]['sticker']
-        await user.api.messages.send(reply_to=ans.id, peer_id=ans.peer_id, random_id=0, sticker_id=sticker['sticker_id'])
-    else:
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            message="Надо сообщение с гс или стикером....",
-            random_id=0
-        )
-        return
-
 
 async def AudioMsgChange(ans: Message, args):
     if (ans.peer_id == user.user_id): for_all = None
@@ -577,68 +501,6 @@ async def TestersCheck(ans: Message, args):
 
     return
 
-async def RepeatMessageAll(ans: Message, args):
-    if(len(args) < 2):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            random_id=0,
-            message="Использование: /repeat [количество]<br>P.S. надо отвеить на сообщение....",
-            reply_to=ans.message_id
-        )
-        return
-
-    try:
-        sumRepeat = int(args[1])
-        if (sumRepeat < 0 or sumRepeat > 20):
-            await user.api.messages.send(
-                peer_id=ans.peer_id,
-                random_id=0,
-                message="Использование: /repeat [количество 1-20]<br>P.S. надо отвеить на сообщение....",
-                reply_to=ans.message_id
-            )
-            return
-    except:
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            random_id=0,
-            message="Использование: /repeat [количество 1-20]<br>P.S. надо отвеить на сообщение....",
-            reply_to=ans.message_id
-        )
-        return
-
-    reply = ans.reply_message;
-    if(reply == None):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            random_id=0,
-            message="Использование: /repeat [количество]<br>P.S. надо отвеить на сообщение....",
-            reply_to=ans.message_id
-        )
-        return
-
-
-    text = reply.text
-    if(text == None):
-        await user.api.messages.send(
-            peer_id=ans.peer_id,
-            random_id=0,
-            message="В этом сообщении нет текста...",
-            reply_to=ans.message_id
-        )
-        return
-
-    for x in range(sumRepeat):
-        try:
-            await user.api.messages.send(
-                peer_id=ans.peer_id,
-                random_id=0,
-                message=text
-            )
-        except:
-            break;
-        time.sleep(random.randrange(0,5))
-    return
-
 async def RepeatMessage(ans: Message, args):
     for_all = None if ans.from_id == ans.peer_id else True
 
@@ -965,7 +827,6 @@ async def UserId(ans: Message, args):
         message="✅ Uid: " + str(ans.reply_message.from_id)
     )
 
-
 @user.on.message_handler()
 async def Handler(ans: Message):
     current_time = time.strftime("%H:%M:%S", time.localtime())
@@ -980,7 +841,6 @@ async def Handler(ans: Message):
     banned_peers = getData('banned_peers')
     if(banned_peers is not None):
         if(ans.peer_id in banned_peers) and not(ans.from_id == owner_id):
-
             return
 
     try:
@@ -988,7 +848,8 @@ async def Handler(ans: Message):
     except Exception as e:
         args = [ans.text]
 
-    if (len(args) == 0): return
+    if (len(args) == 0):
+        return
 
     if (args[0].lower() in ['/d', '/dister']):
          await Dist(ans=ans, args=args)
@@ -999,35 +860,27 @@ async def Handler(ans: Message):
     if (args[0].lower() in [ '/ma', '/music_audio' ]):
         await MusicAudio(ans=ans, args=args)
 
-    if not(ans.from_id in [ owner_id, 416526498, 461433515 ]):
+    if not(ans.from_id == owner_id):
         return
 
-    if (ans.from_id == owner_id):
-        if (args[0].lower() == '/del'):
-            await DelCommand(ans=ans, args=args)
-        elif (args[0].lower() == '/copy'):
-            await Copy(ans=ans, args=args)
-        elif (args[0].lower() in [ '/i', '/и' ]):
-            await InvisibleMessage(ans=ans, args=args)
-        elif (args[0].lower() == '/repeat'):
-            await RepeatMessage(ans=ans, args=args)
-        elif (args[0].lower() == '/uid'):
-            await UserId(ans=ans, args=args)
-        elif (args[0].lower() == '/ban'):
-            await BanUser(ans=ans, args=args)
-        elif (args[0].lower() == '/unban'):
-            await UnBanUser(ans=ans, args=args)
-        elif (args[0].lower() == '/ban_peer'):
-            await BanPeer(ans=ans, args=args)
-        elif (args[0].lower() == '/unban_peer'):
-            await UnBanPeer(ans=ans, args=args)
-    else:
-        if (args[0].lower() == '/del'):
-            await DelCommandForAll(ans=ans, args=args)
-        elif (args[0].lower() == '/copy'):
-            await CopyForAll(ans=ans, args=args)
-        elif (args[0].lower() == '/repeat'):
-            await RepeatMessageAll(ans=ans, args=args)
+    if (args[0].lower() == '/del'):
+        await DelCommand(ans=ans, args=args)
+    elif (args[0].lower() == '/copy'):
+        await Copy(ans=ans, args=args)
+    elif (args[0].lower() in [ '/i', '/и' ]):
+        await InvisibleMessage(ans=ans, args=args)
+    elif (args[0].lower() == '/repeat'):
+        await RepeatMessage(ans=ans, args=args)
+    elif (args[0].lower() == '/uid'):
+        await UserId(ans=ans, args=args)
+    elif (args[0].lower() == '/ban'):
+        await BanUser(ans=ans, args=args)
+    elif (args[0].lower() == '/unban'):
+        await UnBanUser(ans=ans, args=args)
+    elif (args[0].lower() == '/ban_peer'):
+        await BanPeer(ans=ans, args=args)
+    elif (args[0].lower() == '/unban_peer'):
+        await UnBanPeer(ans=ans, args=args)
 
 
 
